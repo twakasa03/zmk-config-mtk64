@@ -1,12 +1,14 @@
+// ポインタ既定値。dt-bindings/zmk/pointing.h の #include より「前」に置く必要がある。
+// 後ろに書くと define が効かず、既定値 (MOVE=600 / SCRL=10) のままになる。
+// 2026-08-13 まで9行目 (include の後ろ) にあったためスクロールが 10 で動いていた。
+#define ZMK_POINTING_DEFAULT_MOVE_VAL 600
+#define ZMK_POINTING_DEFAULT_SCRL_VAL 100
+
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/pointing.h>
 #include <input/processors.dtsi>
-#include "keycode_japanese.h"
-
-// スクロール量の設定
-#define ZMK_POINTING_DEFAULT_SCRL_VAL 100
 
 &mt {
     flavor = "balanced";
@@ -37,15 +39,23 @@
 };
 
 // ============================================================
-// Home Row Mods (Phase 2-A, 2026-07-03) — urob流 timeless HRM
-// 配列: GACS (a=Cmd s=Alt d=Ctrl f=Shift / 右手ミラー j=Shift k=Ctrl l=Alt ;=Cmd)
+// Home Row Mods (Phase 2-A, 2026-07-03 / 並びを 2026-08-13 に旧配列へ戻した) — urob流 timeless HRM
+// 配列: 小指=Ctrl 薬指=Alt 中指=Shift 人差指=Cmd
+//   (a=Ctrl s=Alt d=Shift f=Cmd / 右手ミラー j=Cmd k=Shift l=Alt ;=Ctrl)
+//   Cmd+C/V/X/Z/A/S/W/T/F は文字がすべて左手にあり、バイラテラルでは必ず右手の Cmd を使う。
+//   人差指 (J) に Cmd を置くと右手で最も強い指が使える。GACS では小指 (;) だった。
+//   behavior のパラメータ (balanced / 280ms / 175ms / 150ms / バイラテラル) は変えていない。
 // バイラテラル: hold-trigger-key-positions に「反対手 + 全親指」のみ列挙
 //   → 同じ手のキーとの組合せでは自動的に tap 扱い (誤発火の構造的排除)
 //
 // default_layer 位置番号 (0起点、bindings 記載順):
 //   Row1:  0-5   | 6-11      Row2: 12-17 | 18-23
 //   Row3: 24-29  | 30-35     Row4: 36-42 | 43-49
-//   親指/中央 (Row5-7): 50-65   サイド/フット (&mo): 66-74
+//   親指/中央 (Row5-7): 50-65   サイド/フット: 66-74
+//   66-74 は物理キーが存在しない (下端3キー×2・フットスイッチ3個。build.yaml も FOOT ビルドを無効化)。
+//   マトリクスの数だけは合わせる必要があるので &trans を置いてある。
+//   49 (旧 JP_BSLH/INT1) と 57 (旧 JP_YEN/INT3) は物理キーが有るが US では出力が無いため予備。
+//   工程2 のレイヤー設計で中身を決める。
 // ============================================================
 / {
     behaviors {
@@ -83,19 +93,19 @@
         combo_touten {
             timeout-ms = <30>;
             key-positions = <31 32>;    // J + K → 、
-            bindings = <&kp JP_COMMA>;
+            bindings = <&kp COMMA>;
             layers = <0>;
         };
         combo_kuten {
             timeout-ms = <30>;
             key-positions = <32 33>;    // K + L → 。
-            bindings = <&kp JP_DOT>;
+            bindings = <&kp DOT>;
             layers = <0>;
         };
         combo_chouon {
             timeout-ms = <30>;
             key-positions = <33 34>;    // L + ; → ー
-            bindings = <&kp JP_MINUS>;
+            bindings = <&kp MINUS>;
             layers = <0>;
         };
     };
@@ -108,15 +118,15 @@
 
         default_layer {
             bindings = <
-&kp ESC   &kp N1 &kp N2 &kp N3   &kp N4   &kp N5                                &kp N6 &kp N7   &kp N8    &kp N9  &kp N0       &kp JP_MINUS
-&kp TAB   &kp Q  &kp W  &kp E    &kp R    &kp T                                 &kp Y  &kp U    &kp I     &kp O   &kp P        &kp JP_AT
-&kp LCTRL &hml LGUI A  &hml LALT S  &hml LCTRL D    &hml LSHFT F    &kp G       &kp H  &hmr RSHFT J    &hmr RCTRL K     &hmr RALT L   &hmr RGUI JP_SEMI  &kp JP_COLON
-&kp LSHFT &kp Z  &kp X  &kp C    &kp V    &kp B  &kp JP_LBKT        &kp JP_RBKT &kp N  &kp M    &kp COMMA &kp DOT &kp JP_SLASH &kp JP_BSLH
-&kp LALT  &kp LGUI               &lt 1 LANG2     &lt 2 SPACE        &kp BSPC    &kp ENTER                         &kp JP_CARET &kp JP_YEN
+&kp ESC   &kp N1 &kp N2 &kp N3   &kp N4   &kp N5                                &kp N6 &kp N7   &kp N8    &kp N9  &kp N0       &kp MINUS
+&kp TAB   &kp Q  &kp W  &kp E    &kp R    &kp T                                 &kp Y  &kp U    &kp I     &kp O   &kp P        &kp LBKT
+&kp LCTRL &hml LCTRL A &hml LALT S  &hml LSHFT D    &hml LGUI F     &kp G       &kp H  &hmr RGUI J     &hmr RSHFT K     &hmr RALT L   &hmr RCTRL SEMI    &kp SQT
+&kp LSHFT &kp Z  &kp X  &kp C    &kp V    &kp B  &kp RBKT           &kp BSLH    &kp N  &kp M    &kp COMMA &kp DOT &kp SLASH    &trans
+&kp LALT  &kp LGUI               &lt 1 LANG2     &lt 2 SPACE        &kp BSPC    &kp ENTER                         &kp EQUAL    &trans
                  &tog 2 &kp ENTER                &lt 3 LANG1        &lt 1 ENTER                 &kp ENTER &tog 2
                                                  &kp LG(C)          &kp LG(V)
-          &mo 1  &mo 2  &mo 3                                                                   &mo 1     &mo 2   &mo 3
-                                                 &mo 1    &mo 2     &mo 3  
+          &trans &trans &trans                                                                  &trans    &trans  &trans
+                                                 &trans   &trans    &trans
             >;
 
             sensor-bindings = <
