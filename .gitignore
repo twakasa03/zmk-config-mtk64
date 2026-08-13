@@ -1,0 +1,18 @@
+
+# ===== 認証情報（2026-07-25 全リポへ横展開）=====
+# 漏洩するとスプレッドシート/Drive/基幹への実行権限を第三者に渡すことになる。
+# 手本: jinji-kouka-dx（監査で最も堅牢と評価された設定）
+.clasprc*.json
+client_secret*.json
+creds.json
+credentials.json
+*service-account*.json
+.env
+.env.*
+mart.ini
+secrets.local.ini
+*.pem
+*.key
+# ガード系フックの監査ログ（発火した事実とパスが残るため）
+.claude/hooks/*.log
+.claude/*.log
