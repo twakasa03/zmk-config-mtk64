@@ -84,11 +84,10 @@
         // 1. X/Y をホイールに読み替える
         // 2. 縦だけ反転する (2026-08-13。カーソルの向きは変えない。
         //    zip_scroll_transform は WHEEL/HWHEEL に効くので必ず mapper の後ろに置く)
-        // 3. 倍率。高分解能スクロール (SMOOTH_SCROLLING) で1単位が 1/16 ノッチになったので、
-        //    従来と同じ距離にするには 64 → 4 (16倍) が対応する。工程3 で実測して詰める。
+        // 3. 倍率。1 4 も試したが速すぎたので 1 64 に戻した (2026-08-13)。工程3 で詰める。
         input-processors = <&zip_xy_to_scroll_mapper>,
                            <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
-                           <&zip_scroll_scaler 1 4>;
+                           <&zip_scroll_scaler 1 64>;
         process-next;
         };
 

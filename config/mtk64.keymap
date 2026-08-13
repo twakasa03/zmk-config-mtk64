@@ -3,11 +3,9 @@
 // 2026-08-13 まで9行目 (include の後ろ) にあったためスクロールが 10 で動いていた。
 #define ZMK_POINTING_DEFAULT_MOVE_VAL 600
 // SCRL_VAL は「1秒あたりのスクロール量」。エンコーダーは tap-ms 20ms 押す扱いなので
-// 1目盛あたり SCRL_VAL × 0.02 が出る。
-// 高分解能スクロール (CONFIG_ZMK_POINTING_SMOOTH_SCROLLING) を入れると1単位が 1/16 ノッチに
-// なるため、100 のままでは 1目盛 = 1/8 ノッチしか動かない。16倍して 1600 にすると
-// 従来と同じ距離になるが、まず半分の 800 (1目盛 ≒ 1ノッチ) から測る。工程3 で詰める。
-#define ZMK_POINTING_DEFAULT_SCRL_VAL 800
+// 1目盛あたり SCRL_VAL × 0.02 が出る。100 なら 1目盛 = 2ノッチ。
+// 800 も試したが速すぎたので戻した (2026-08-13)。
+#define ZMK_POINTING_DEFAULT_SCRL_VAL 100
 
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/bt.h>
