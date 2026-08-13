@@ -177,6 +177,12 @@
                                         &trans          &trans                                       &trans         &trans          &trans  &trans
                                                                                                      &trans         &trans
                 &trans                  &trans          &trans                                                                      &trans  &trans  &trans
+// ここまでで 58個。このレイヤーだけ binding が 75個 に足りておらず、位置58〜74 の17個が
+// 空 (behavior_dev = NULL) のまま実機に載っていた (2026-08-13 に dump で検出)。
+// うち 58〜65 は実在する親指・中央キーである。まず数を合わせるために &trans を足す。
+// なお 行の形も 12/12/12/14/8/6/2/6/3 になっておらず、3行目が row4 の形 (7+7) で書かれているため
+// 位置24 以降の割当が意図とずれている可能性がある。ここは工程2 で NAV を作り直すときに正す。
+&trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans
             >;
             sensor-bindings = <
                 &scroll_left_right SCRL_LEFT SCRL_RIGHT
