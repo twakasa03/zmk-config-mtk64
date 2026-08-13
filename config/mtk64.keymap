@@ -2,7 +2,12 @@
 // 後ろに書くと define が効かず、既定値 (MOVE=600 / SCRL=10) のままになる。
 // 2026-08-13 まで9行目 (include の後ろ) にあったためスクロールが 10 で動いていた。
 #define ZMK_POINTING_DEFAULT_MOVE_VAL 600
-#define ZMK_POINTING_DEFAULT_SCRL_VAL 100
+// SCRL_VAL は「1秒あたりのスクロール量」。エンコーダーは tap-ms 20ms 押す扱いなので
+// 1目盛あたり SCRL_VAL × 0.02 が出る。
+// 高分解能スクロール (CONFIG_ZMK_POINTING_SMOOTH_SCROLLING) を入れると1単位が 1/16 ノッチに
+// なるため、100 のままでは 1目盛 = 1/8 ノッチしか動かない。16倍して 1600 にすると
+// 従来と同じ距離になるが、まず半分の 800 (1目盛 ≒ 1ノッチ) から測る。工程3 で詰める。
+#define ZMK_POINTING_DEFAULT_SCRL_VAL 800
 
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/bt.h>
@@ -218,12 +223,16 @@
             >;
         };
 
+        // 自動マウスレイヤー。トラックボールが動くと zip_temp_layer で入る。
+        // クリックは 2026-08-13 に M/, から右手ホームロー (J/K/L) へ移した。
+        // ここを動かしたら zip_temp_layer の excluded-positions も必ず追随させる
+        // (excluded-positions に無いキーを押すとレイヤーが解除されてクリックにならない)。
         layer_6 {
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans      &mkp MB4        &mkp MB5        &mkp MB1        &mkp MB2        &mkp MB3  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                      &mkp MB4  &mkp MB1  &mkp MB2  &mkp MB3  &mkp MB5  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans      &trans          &trans          &trans          &trans          &trans    &trans  &trans
 &trans  &trans                          &trans  &trans      &trans  &trans                          &trans  &trans
                 &trans  &trans                  &trans      &trans                  &trans  &trans
                                                 &trans      &trans
