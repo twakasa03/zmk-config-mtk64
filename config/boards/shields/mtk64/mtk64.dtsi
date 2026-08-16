@@ -135,11 +135,25 @@
 
     };
 
+    // steps を 15 → 20 にした (2026-08-16)。1ノッチで1回だけ発火させるための値。
+    //
+    // ec11 ドライバは 1パルス = 360/steps 度 を出し (app/module/drivers/sensor/ec11/ec11.c)、
+    // behavior_sensor_rotate_common は 360/triggers-per-rotation 度 ごとに1回 発火する。
+    // したがって 1パルスあたりの発火回数 = triggers-per-rotation ÷ steps。
+    //
+    // この盤は 1ノッチで 2パルス 出る。15 のときは 2 × (10/15) = 4/3 になっていて、
+    // 3ノッチ回すと4回 発火していた。実機では 1,1,2,1,1,2 … の繰り返しとして出る
+    // (2026-08-16 に本人が申告。周期がきれいなので接触不良ではなく比の設定ずれ)。
+    // 20 なら 2 × (10/20) = 1 ちょうど。1パルス18度・発火は36度ごとで割り切れるので
+    // 端数が溜まって時々1つ多く進むこともない。
+    //
+    // 書き込んだあと「1ノッチおきに反応しない」に変わったら、1ノッチ1パルスの盤だった
+    // ということなので steps を 10 に落とす。逆にまだ多いなら 30 → 40 と上げる。
     left_encoder: encoder_left {
         compatible = "alps,ec11";
         a-gpios = <&xiao_d 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
         b-gpios = <&xiao_d 5 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
-        steps = <15>;
+        steps = <20>;
         status = "disabled";
     };
 
@@ -147,7 +161,7 @@
         compatible = "alps,ec11";
         a-gpios = <&gpio0 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
         b-gpios = <&gpio0 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
-        steps = <15>;
+        steps = <20>;
         status = "disabled";
     };
 
