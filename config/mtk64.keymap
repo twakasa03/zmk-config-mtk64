@@ -111,22 +111,21 @@
             hold-trigger-on-release;
         };
 
-        // 親指のレイヤータップは2種類に分ける。ZMK 既定の &lt は tap-preferred なので、
-        // そのまま使うとレイヤーに入るのに必ず tapping-term ぶん待たされる。
+        // td_ime — 位置52。1タップ=英数 / 2タップ=かな (2026-08-16 に本人の希望で入れた)。
+        //   ZMK の tap-dance は長押しを兼ねられない。bindings に <&lt_ime LY_SYM LANG2> を
+        //   入れれば形は作れるが、tap-dance の200ms が解決してから hold-tap の180ms が
+        //   始まるので、記号レイヤーに入るまで380ms かかる。入れ子にはしない。
+        //   そのぶん SYM は位置60 の純粋な &mo に移した。長押し待ちが無くなるので、
+        //   前の版で工程3送りにしていた「SYM に入るのに最大180ms」はこれで消えている。
         //
-        // lt_ime — 英数 (52) と かな (60)。tap が化けたら日本語入力が壊れるので tap を最優先する。
-        //   危ないのは「止まる → IME を切り替える → すぐ打ち始める」という流れ。
-        //   balanced だと、押している間に別のキーを押して離した時点で hold に倒れるので、
-        //   英数を押した直後の1文字が記号レイヤーの字になる。tap-preferred なら他のキーでは倒れない。
-        //   代償はレイヤーに入るまで最大180ms 待つこと。記号1個だけ打つ場面ではここが体感に出る。
-        //   工程3 で詰める。詰め方は「180 を下げる」か「SYM を tap の無い &mo に逃がす」の2択。
-        lt_ime: layer_tap_ime {
-            compatible = "zmk,behavior-hold-tap";
-            #binding-cells = <2>;
-            flavor = "tap-preferred";
-            tapping-term-ms = <180>;
-            quick-tap-ms = <175>;
-            bindings = <&mo>, <&kp>;
+        //   1タップの確定は「tapping-term が切れる」か「別のキーが押される」かのどちらか早いほう。
+        //   IME を切り替えたら必ず何か打つので、実際には次の1打鍵で即 確定する。
+        //   200ms はダブルタップとみなす窓でもある。英数を2回 続けて叩くとかなになる点だけ注意。
+        td_ime: tap_dance_ime {
+            compatible = "zmk,behavior-tap-dance";
+            #binding-cells = <0>;
+            tapping-term-ms = <200>;
+            bindings = <&kp LANG2>, <&kp LANG1>;
         };
         // lt_nav — Space (53)。Space は必ず文字の直後に来るので、require-prior-idle-ms が
         //   打鍵中の hold 誤発火を丸ごと止める。止まった後に押した時だけ balanced が効いて即座に
@@ -203,23 +202,33 @@
         //   54 : BkSp / Shift併用で Delete (mod-morph)。
         //   58 / 59 : ロータリーエンコーダーの押し込み。58=ミュート (エンコーダー1が音量なので対)、
         //         59=Enter (工程1 から据え置き。本人が押しやすいと答えた位置)。
+        //   42 : NUM の呼び出し (左手人差指の内側)。親指4本が IME・Space・SYM・SCROLL で
+        //         埋まったので、テンキーだけ指に降ろした。右手でテンキーを打つので hold は左手が要る。
+        //         ここにあった ] は SYM の K で打てるので BASE からは落とした。
+        //   52 : 1タップ=英数 / 2タップ=かな (tap_dance)。長押しは無い。
+        //   60 : SYM。純粋な &mo なので長押し待ちがゼロ。ここは かな だった。
         // ------------------------------------------------------------------
         default_layer {
             bindings = <
 &kp GRAVE &kp N1       &kp N2       &kp N3        &kp N4       &kp N5                            &kp N6 &kp N7      &kp N8       &kp N9      &kp N0           &kp MINUS
 &kp TAB   &kp Q        &kp W        &kp E         &kp R        &kp T                             &kp Y  &kp U       &kp I        &kp O       &kp P            &kp LBKT
 &kp ESC   &hml LCTRL A &hml LALT S  &hml LSHFT D  &hml LGUI F  &kp G                             &kp H  &hmr RGUI J &hmr RSHFT K &hmr RALT L &hmr RCTRL SEMI  &kp SQT
-&kp LSHFT &kp Z        &kp X        &kp C         &kp V        &kp B        &kp RBKT    &kp BSLH &kp N  &kp M       &kp COMMA    &kp DOT     &kp SLASH        &kp EQUAL
-&kp LALT  &kp LGUI                                &lt_ime LY_SYM LANG2 &lt_nav LY_NAV SPACE       &bspc_del &kp ENTER                                  &kp DEL          &kp RSHFT
-                       &kp C_MUTE                 &kp ENTER                 &lt_ime LY_NUM LANG1      &mo LY_SNIPE                          &none       &none
-                                                                            &mo LY_SCROLL                &mo LY_FUNC
+&kp LSHFT &kp Z        &kp X        &kp C         &kp V        &kp B        &mo LY_NUM  &kp BSLH &kp N  &kp M       &kp COMMA    &kp DOT     &kp SLASH        &kp EQUAL
+&kp LALT  &kp LGUI                                &td_ime          &lt_nav LY_NAV SPACE      &bspc_del &kp ENTER                                  &kp DEL          &kp RSHFT
+                       &kp C_MUTE                 &kp ENTER                 &mo LY_SYM                &mo LY_SNIPE                          &none       &none
+                                                                            &mo LY_SCROLL             &mo LY_FUNC
           &none        &none        &none                                                                                       &none       &none            &none
                                                                             &none    &none       &none
             >;
 
             sensor-bindings = <
                 &inc_dec_kp C_VOL_DN C_VOL_UP
-                &inc_dec_kp LEFT_ARROW RIGHT_ARROW
+                // 2個目はデスクトップ (Mission Control のスペース) の切り替え。
+                // Magic Mouse の2本指 左右スライドと同じ種類の操作なので、ノブが一番近い。
+                // 差し替える前は「カーソル左右」だったが、NAV の矢印と重複していて価値が低かった。
+                // macOS 側で システム設定 → キーボード → キーボードショートカット →
+                // Mission Control の「操作スペース1つ左/右に移動」が有効になっている必要がある (既定で有効)。
+                &inc_dec_kp LC(LEFT_ARROW) LC(RIGHT_ARROW)
             >;
         };
 
@@ -291,7 +300,7 @@
             bindings = <
 &trans  &trans        &trans        &trans        &trans        &trans                        &trans  &trans        &trans        &trans        &trans        &trans
 &trans  &trans        &trans        &trans        &trans        &trans                        &trans  &kp HOME      &kp PG_UP     &kp PG_DN     &kp END       &trans
-&trans  &trans        &trans        &trans        &trans        &trans                        &trans  &kp LEFT      &kp DOWN      &kp UP        &kp RIGHT     &trans
+&trans  &trans        &trans        &trans        &trans        &trans                        &kp LC(LEFT)  &kp LEFT  &kp DOWN  &kp UP    &kp RIGHT     &kp LC(RIGHT)
 &trans  &kp LG(Z)     &kp LG(X)     &kp LG(C)     &kp LG(V)     &kp LG(LS(Z))  &trans  &trans  &trans  &kp LA(LEFT)  &kp LG(LEFT)  &kp LG(RIGHT) &kp LA(RIGHT) &trans
 &trans  &trans                                    &trans        &trans         &trans  &trans                                     &trans        &trans
                       &trans        &trans                                     &trans  &trans                       &none         &none
@@ -371,17 +380,29 @@
         // L7 FUNC — 右親指65 を押している間
         //   右親指で呼ぶので、中身は全部 左手に置いてある。唯一の例外は位置11 の &bootloader で、
         //   これは同じ手の小指を上まで伸ばさないと届かない＝誤爆しない位置に置いてある。
-        //   段1: メディア  段2: 固定修飾 (&sk。手首が痛む日に押しっぱなしを避ける逃げ道)
+        //   段1: 再生/停止・アプリ切り替え4つ・ミュート
+        //   段2: 固定修飾 (&sk。手首が痛む日に押しっぱなしを避ける逃げ道)
         //   段3: ことえりの変換やり直しとスクリーンショット
         //     Ctrl+J ひらがな / Ctrl+K カタカナ / Ctrl+L 全角英数 / Ctrl+; 半角英数
         //     いずれも &kp 1つで書けるので ZMK のマクロは使っていない。
+        //
+        //   アプリ切り替え (13-16) は Ctrl+Opt+Cmd+<文字> を送るだけである。
+        //   **キーボード単体では動かない。** アプリを前面に出すのは OS の仕事で、
+        //   ファームウェアはキーコードしか送れない。macOS 標準の ショートカット.app に
+        //   「Appを開く」だけのショートカットを4つ作り、それぞれに次の組合せを割り当てること。
+        //     Ctrl+Opt+Cmd+C = Google Chrome   (実測 29日で 194.1時間)
+        //     Ctrl+Opt+Cmd+V = Visual Studio Code (71.6時間)
+        //     Ctrl+Opt+Cmd+F = Finder          (8.4時間)
+        //     Ctrl+Opt+Cmd+I = Illustrator     (6.8時間)
+        //   BTT や Raycast は要らない。ショートカット.app は OS 標準なので
+        //   シャドーIT の審査対象にならない。並びは実測の時間順で、文字は頭文字である。
         // ------------------------------------------------------------------
         layer_7 {
             bindings = <
-&bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3 &bt BT_SEL 4 &bt BT_CLR                    &trans  &trans  &trans  &trans  &trans  &bootloader
-&trans       &kp C_PREV   &kp C_PP     &kp C_NEXT   &kp C_MUTE   &trans                        &trans  &trans  &trans  &trans  &trans  &trans
-&trans       &sk LCTRL    &sk LALT     &sk LSHFT    &sk LGUI     &trans                        &trans  &trans  &trans  &trans  &trans  &trans
-&trans       &kp LC(J)    &kp LC(K)    &kp LC(L)    &kp LC(SEMI) &kp LG(LS(N4)) &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&bt BT_SEL 0 &bt BT_SEL 1     &bt BT_SEL 2     &bt BT_SEL 3     &bt BT_SEL 4     &bt BT_CLR                    &trans  &trans  &trans  &trans  &trans  &bootloader
+&kp C_PP     &kp LC(LA(LG(C))) &kp LC(LA(LG(V))) &kp LC(LA(LG(F))) &kp LC(LA(LG(I))) &kp C_MUTE                &trans  &trans  &trans  &trans  &trans  &trans
+&trans       &sk LCTRL        &sk LALT         &sk LSHFT        &sk LGUI         &trans                        &trans  &trans  &trans  &trans  &trans  &trans
+&trans       &kp LC(J)        &kp LC(K)        &kp LC(L)        &kp LC(SEMI)     &kp LG(LS(N4)) &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans       &trans                                 &trans       &trans         &trans  &trans                  &trans  &trans
                           &trans       &trans                                   &trans  &trans          &none   &none
                                                                                 &trans  &trans
