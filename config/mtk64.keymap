@@ -10,16 +10,32 @@
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/modifiers.h>
 #include <dt-bindings/zmk/pointing.h>
 #include <input/processors.dtsi>
+
+// ============================================================
+// レイヤー8枚 (2026-08-16, 工程2)
+// 番号は mtk64_trackball.dtsi の zip_temp_layer / snipe / scroll とも一致させること。
+// 片方だけ直すと、マウスもスクロールも精密モードも別のレイヤーを見にいく。
+// ============================================================
+#define LY_BASE   0
+#define LY_NUM    1
+#define LY_SYM    2
+#define LY_NAV    3
+#define LY_MOUSE  4
+#define LY_SCROLL 5
+#define LY_SNIPE  6
+#define LY_FUNC   7
 
 &mt {
     flavor = "balanced";
     quick-tap-ms = <0>;
 };
 
+// マウスキーを押したときも自動マウスレイヤーに入る。番号は下の LY_MOUSE と同じ。
 &mkp_input_listener {
-    input-processors = <&zip_temp_layer 6 5000>;
+    input-processors = <&zip_temp_layer LY_MOUSE 5000>;
 };
 
 / {
@@ -51,14 +67,22 @@
 // バイラテラル: hold-trigger-key-positions に「反対手 + 全親指」のみ列挙
 //   → 同じ手のキーとの組合せでは自動的に tap 扱い (誤発火の構造的排除)
 //
-// default_layer 位置番号 (0起点、bindings 記載順):
+// require-prior-idle-ms = 150 の副作用: 直前150ms 以内に打鍵があると hold が発火せず tap になる。
+//   つまり語中の大文字 (DX / FOB のような綴り) は HRM の Shift では打てない。
+//   位置36 の物理 Shift を残してあるのはこの逃げ道のため。同じ理由で 50 (Alt) と 51 (Cmd) も残す
+//   (Cmd+クリック / Shift+クリックは、HRM だと押しっぱなしが要るので物理キーのほうが確実)。
+//   潰したのは位置24 の物理 Ctrl だけ。真下の a が HRM で Ctrl を持っていて完全に重複しており、
+//   しかも Caps Lock 位置という一等地だったので Esc に回した (2026-08-16)。
+//
+// 物理の位置番号 (0起点、bindings 記載順):
 //   Row1:  0-5   | 6-11      Row2: 12-17 | 18-23
 //   Row3: 24-29  | 30-35     Row4: 36-42 | 43-49
-//   親指/中央 (Row5-7): 50-65   サイド/フット: 66-74
-//   66-74 は物理キーが存在しない (下端3キー×2・フットスイッチ3個。build.yaml も FOOT ビルドを無効化)。
-//   マトリクスの数だけは合わせる必要があるので &trans を置いてある。
-//   49 (旧 JP_BSLH/INT1) と 57 (旧 JP_YEN/INT3) は物理キーが有るが US では出力が無いため予備。
-//   工程2 のレイヤー設計で中身を決める。
+//   Row5-7: 50-65             サイド/フット: 66-74
+//   実在するキーは64個。名前の MTK64 と一致する。存在しないのは次の11か所:
+//     58 / 59 = 左手のロータリーエンコーダー2個。押し込みは入力として使える (キーではない)
+//     62 / 63 = トラックボール。キーが無いので押し込みも割り当てられない → &none
+//     66-74   = 下端3キー×2・フットスイッチ3個。物理的に付いていない → &none
+//   マトリクスの数だけは75個 合わせる必要がある。
 // ============================================================
 / {
     behaviors {
@@ -86,6 +110,45 @@
             hold-trigger-key-positions = <0 1 2 3 4 5 12 13 14 15 16 17 24 25 26 27 28 29 36 37 38 39 40 41 42 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65>;
             hold-trigger-on-release;
         };
+
+        // 親指のレイヤータップは2種類に分ける。ZMK 既定の &lt は tap-preferred なので、
+        // そのまま使うとレイヤーに入るのに必ず tapping-term ぶん待たされる。
+        //
+        // lt_ime — 英数 (52) と かな (60)。tap が化けたら日本語入力が壊れるので tap を最優先する。
+        //   危ないのは「止まる → IME を切り替える → すぐ打ち始める」という流れ。
+        //   balanced だと、押している間に別のキーを押して離した時点で hold に倒れるので、
+        //   英数を押した直後の1文字が記号レイヤーの字になる。tap-preferred なら他のキーでは倒れない。
+        //   代償はレイヤーに入るまで最大180ms 待つこと。記号1個だけ打つ場面ではここが体感に出る。
+        //   工程3 で詰める。詰め方は「180 を下げる」か「SYM を tap の無い &mo に逃がす」の2択。
+        lt_ime: layer_tap_ime {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            flavor = "tap-preferred";
+            tapping-term-ms = <180>;
+            quick-tap-ms = <175>;
+            bindings = <&mo>, <&kp>;
+        };
+        // lt_nav — Space (53)。Space は必ず文字の直後に来るので、require-prior-idle-ms が
+        //   打鍵中の hold 誤発火を丸ごと止める。止まった後に押した時だけ balanced が効いて即座に
+        //   NAV に入れる。矢印は連続して押すので、入るのが速いほうが得。
+        lt_nav: layer_tap_nav {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            flavor = "balanced";
+            tapping-term-ms = <200>;
+            quick-tap-ms = <175>;
+            require-prior-idle-ms = <150>;
+            bindings = <&mo>, <&kp>;
+        };
+
+        // BkSp を Shift と一緒に押すと Delete (前方削除)。遅延ゼロ。
+        // 位置56 にも独立した Delete を置いてあるので、どちらでも打てる。
+        bspc_del: backspace_delete {
+            compatible = "zmk,behavior-mod-morph";
+            #binding-cells = <0>;
+            bindings = <&kp BSPC>, <&kp DEL>;
+            mods = <(MOD_LSFT|MOD_RSFT)>;
+        };
     };
 
     // 句読点 combo — 旧 Studio カスタム (j長押し=、 k長押し=。 ;長押し=ー) の置換。
@@ -111,6 +174,14 @@
             bindings = <&kp MINUS>;
             layers = <0>;
         };
+        // F + J で次の1語だけ大文字 (Caps Word)。Shift を押しっぱなしにしないで済む。
+        // 左右にまたがるので同じ手のロールでは起きない。f→j / j→f はローマ字にも英語にも無い。
+        combo_caps_word {
+            timeout-ms = <30>;
+            key-positions = <28 31>;    // F + J
+            bindings = <&caps_word>;
+            layers = <0>;
+        };
     };
 };
 
@@ -119,123 +190,207 @@
     keymap {
         compatible = "zmk,keymap";
 
+        // ------------------------------------------------------------------
+        // L0 BASE — US ANSI QWERTY + Home Row Mods
+        //   0  : ` (バッククォート)。工程1 まで7レイヤー525キーのどこにも無かった字。
+        //         Markdown のコードスパンで毎日使うので US ANSI の定位置に置いた。
+        //   24 : Esc。Caps Lock 位置。日本語入力の変換取り消しで最も打つキーなので一等地に移した。
+        //   49 : = 。工程1 まで死んでいた位置。右小指の外側の列が上から - [ ' = で揃う。
+        //   56 : Delete (前方削除)。工程1 まで keymap 全体に1つも無かった。
+        //   57 : 右手の物理 Shift。工程1 まで右半分には物理の修飾キーが1つも無かった。
+        //         左手の文字を語中で大文字にする (DX / FOB) には右手の Shift が要るのに、
+        //         HRM の k は require-prior-idle-ms で打鍵中は発火しない。50/51 の鏡の位置。
+        //   54 : BkSp / Shift併用で Delete (mod-morph)。
+        //   58 / 59 : ロータリーエンコーダーの押し込み。58=ミュート (エンコーダー1が音量なので対)、
+        //         59=Enter (工程1 から据え置き。本人が押しやすいと答えた位置)。
+        // ------------------------------------------------------------------
         default_layer {
             bindings = <
-&kp ESC   &kp N1 &kp N2 &kp N3   &kp N4   &kp N5                                &kp N6 &kp N7   &kp N8    &kp N9  &kp N0       &kp MINUS
-&kp TAB   &kp Q  &kp W  &kp E    &kp R    &kp T                                 &kp Y  &kp U    &kp I     &kp O   &kp P        &kp LBKT
-&kp LCTRL &hml LCTRL A &hml LALT S  &hml LSHFT D    &hml LGUI F     &kp G       &kp H  &hmr RGUI J     &hmr RSHFT K     &hmr RALT L   &hmr RCTRL SEMI    &kp SQT
-&kp LSHFT &kp Z  &kp X  &kp C    &kp V    &kp B  &kp RBKT           &kp BSLH    &kp N  &kp M    &kp COMMA &kp DOT &kp SLASH    &trans
-&kp LALT  &kp LGUI               &lt 1 LANG2     &lt 2 SPACE        &kp BSPC    &kp ENTER                         &kp EQUAL    &trans
-                 &tog 2 &kp ENTER                &lt 3 LANG1        &lt 1 ENTER                 &kp ENTER &tog 2
-                                                 &kp LG(C)          &kp LG(V)
-          &trans &trans &trans                                                                  &trans    &trans  &trans
-                                                 &trans   &trans    &trans
+&kp GRAVE &kp N1       &kp N2       &kp N3        &kp N4       &kp N5                            &kp N6 &kp N7      &kp N8       &kp N9      &kp N0           &kp MINUS
+&kp TAB   &kp Q        &kp W        &kp E         &kp R        &kp T                             &kp Y  &kp U       &kp I        &kp O       &kp P            &kp LBKT
+&kp ESC   &hml LCTRL A &hml LALT S  &hml LSHFT D  &hml LGUI F  &kp G                             &kp H  &hmr RGUI J &hmr RSHFT K &hmr RALT L &hmr RCTRL SEMI  &kp SQT
+&kp LSHFT &kp Z        &kp X        &kp C         &kp V        &kp B        &kp RBKT    &kp BSLH &kp N  &kp M       &kp COMMA    &kp DOT     &kp SLASH        &kp EQUAL
+&kp LALT  &kp LGUI                                &lt_ime LY_SYM LANG2 &lt_nav LY_NAV SPACE       &bspc_del &kp ENTER                                  &kp DEL          &kp RSHFT
+                       &kp C_MUTE                 &kp ENTER                 &lt_ime LY_NUM LANG1      &mo LY_SNIPE                          &none       &none
+                                                                            &mo LY_SCROLL                &mo LY_FUNC
+          &none        &none        &none                                                                                       &none       &none            &none
+                                                                            &none    &none       &none
             >;
 
             sensor-bindings = <
+                &inc_dec_kp C_VOL_DN C_VOL_UP
                 &inc_dec_kp LEFT_ARROW RIGHT_ARROW
-                &inc_dec_kp UP_ARROW   DOWN_ARROW
             >;
         };
 
+        // ------------------------------------------------------------------
+        // L1 NUM — 左親指60 (かな) の長押し
+        //   右手にテンキー。左手の上段は F1〜F12、ホームローは &trans なので HRM が生きている。
+        //   つまり NUM を押したまま f (Cmd) + 5 で Cmd+5 が打てる。
+        // ------------------------------------------------------------------
         layer_1 {
             bindings = <
-&bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_SEL 4  &bt BT_SEL 5
-                                                                    &bt BT_CLR_ALL  &trans  &trans  &trans  &trans  &studio_unlock
-&trans  &kp MINUS                   &kp KP_NUMBER_7  &kp KP_NUMBER_8  &kp KP_NUMBER_9  &kp PLUS                                    &trans            &kp PG_UP          &kp UP_ARROW    &kp PG_DN             &trans                &kp F12  
-&trans  &kp SLASH                   &kp KP_NUMBER_4  &kp KP_NUMBER_5  &kp KP_NUMBER_6  &kp ASTERISK                                &kp HOME          &kp LEFT_ARROW     &kp DOWN_ARROW  &kp RIGHT_ARROW       &kp END               &trans  
-&trans  &mt LEFT_SHIFT KP_NUMBER_0  &kp KP_NUMBER_1  &kp KP_NUMBER_2  &kp KP_NUMBER_3  &kp PERIOD    &kp EQUAL      &mkp MB4       &mkp MB5          &mkp MB1           &mkp MB2        &mkp MB3              &trans                &trans  
-&trans  &trans                                                                         &trans        &trans         &trans         &trans                                                                     &trans                &trans
-                                    &trans           &trans                                          &trans         &trans                                              &trans          &trans
-                                                                                                     &trans         &trans
-        &trans                      &trans           &trans                                                                                                             &trans          &trans                &trans
-                                                                                                     &trans &trans  &trans 
-            >;
-        };
-
-        layer_2 {
-            bindings = <
-&trans  &kp F1                      &kp F2           &kp F3           &kp F4           &kp F5                                      &kp F6            &kp F7             &kp F8          &kp F9                &kp F10               &kp F11
-&trans  &kp MINUS                   &kp KP_NUMBER_7  &kp KP_NUMBER_8  &kp KP_NUMBER_9  &kp PLUS                                    &trans            &kp PG_UP          &kp UP_ARROW    &kp PG_DN             &trans                &kp F12  
-&trans  &kp SLASH                   &kp KP_NUMBER_4  &kp KP_NUMBER_5  &kp KP_NUMBER_6  &kp ASTERISK                                &kp HOME          &kp LEFT_ARROW     &kp DOWN_ARROW  &kp RIGHT_ARROW       &kp END               &trans  
-&trans  &mt LEFT_SHIFT KP_NUMBER_0  &kp KP_NUMBER_1  &kp KP_NUMBER_2  &kp KP_NUMBER_3  &kp PERIOD    &kp EQUAL      &mkp MB4       &mkp MB5          &mkp MB1           &mkp MB2        &mkp MB3              &trans                &trans  
-&trans  &trans                                                                         &trans        &trans         &trans         &trans                                                                     &trans                &trans
-                                    &trans           &trans                                          &trans         &trans                                              &trans          &trans
-                                                                                                     &trans         &trans
-        &trans                      &trans           &trans                                                                                                             &trans          &trans                &trans
-                                                                                                     &trans &trans  &trans 
+&kp F1  &kp F2  &kp F3  &kp F4  &kp F5  &kp F6                      &kp F7        &kp F8  &kp F9  &kp F10 &kp F11    &kp F12
+&trans  &trans  &trans  &trans  &trans  &trans                      &kp ASTRK     &kp N7  &kp N8  &kp N9  &kp MINUS  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                      &kp FSLH      &kp N4  &kp N5  &kp N6  &kp PLUS   &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans      &trans  &kp N0        &kp N1  &kp N2  &kp N3  &kp DOT    &kp EQUAL
+&trans  &trans                          &trans  &trans      &trans  &trans                        &trans  &trans
+                &trans  &trans                  &trans      &trans                        &none   &none
+                                                &trans      &trans
+        &none   &none   &none                                                             &none   &none   &none
+                                                &none  &none  &none
             >;
             sensor-bindings = <
-                &inc_dec_kp TAB LS(TAB) 
+                &inc_dec_kp LG(MINUS) LG(EQUAL)
                 &inc_dec_kp PG_UP PG_DN
             >;
         };
 
-        layer_3 {
+        // ------------------------------------------------------------------
+        // L2 SYM — 左親指52 (英数) の長押し
+        //   上段は Shift+数字の並びをそのまま下ろした ! @ # $ % ^ & * 。最後の2つだけ + = に替えてある
+        //   (( ) はホームローに置いたので重複させない)。
+        //   ホームローは開き括弧を左手・閉じ括弧を右手に、指で鏡写しにした。
+        //     A< S{ D[ F( G|  ／  H- J) K] L} ;> '_
+        //   数字段は &trans なので、SYM を押したまま数字が打てる ($100 のような並び用)。
+        //   修飾キーは物理の 36 (Shift) / 50 (Alt) / 51 (Cmd) が &trans で生きている。
+        // ------------------------------------------------------------------
+        layer_2 {
             bindings = <
-&kp ESCAPE      &kp LC(LS(TAB))         &kp UP_ARROW    &kp LC(TAB)              &trans   &trans                                    &trans  &trans  &trans  &trans  &trans  &trans
-&kp HOME        &kp LEFT_ARROW          &kp DOWN_ARROW  &kp RIGHT_ARROW          &kp END  &trans                                    &trans  &trans  &trans  &trans  &trans  &trans
-&kp LEFT_SHIFT  &kp LG(LS(LEFT_ARROW))  &trans          &kp LG(LS(RIGHT_ARROW))  &trans   &trans     &trans         &trans          &trans  &trans  &trans  &trans  &trans  &trans
-&trans          &trans                                                                               &trans         &trans                          &trans  &trans
-                                        &trans          &trans                                       &trans         &trans          &trans  &trans
-                                                                                                     &trans         &trans
-                &trans                  &trans          &trans                                                                      &trans  &trans  &trans
-// ここまでで 58個。このレイヤーだけ binding が 75個 に足りておらず、位置58〜74 の17個が
-// 空 (behavior_dev = NULL) のまま実機に載っていた (2026-08-13 に dump で検出)。
-// うち 58〜65 は実在する親指・中央キーである。まず数を合わせるために &trans を足す。
-// なお 行の形も 12/12/12/14/8/6/2/6/3 になっておらず、3行目が row4 の形 (7+7) で書かれているため
-// 位置24 以降の割当が意図とずれている可能性がある。ここは工程2 で NAV を作り直すときに正す。
-&trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans
+&trans  &trans     &trans     &trans     &trans     &trans                        &trans      &trans     &trans     &trans     &trans    &trans
+&trans  &kp EXCL   &kp AT     &kp HASH   &kp DLLR   &kp PRCNT                     &kp CARET   &kp AMPS   &kp ASTRK  &kp PLUS   &kp EQUAL &trans
+&trans  &kp LT     &kp LBRC   &kp LBKT   &kp LPAR   &kp PIPE                      &kp MINUS   &kp RPAR   &kp RBKT   &kp RBRC   &kp GT    &kp UNDER
+&trans  &kp GRAVE  &kp TILDE  &kp SQT    &kp DQT    &kp BSLH   &trans     &trans  &kp FSLH    &kp COLON  &kp SEMI   &kp QMARK  &trans    &trans
+&trans  &trans                                      &trans     &trans     &trans  &trans                            &trans     &trans
+                   &trans     &trans                           &trans     &trans                         &none      &none
+                                                               &trans     &trans
+        &none      &none      &none                                                           &none      &none      &none
+                                                               &none  &none  &none
             >;
             sensor-bindings = <
-                &scroll_left_right SCRL_LEFT SCRL_RIGHT
-                &scroll_up_down SCRL_UP SCRL_DOWN
+                &inc_dec_kp LC(LS(TAB)) LC(TAB)
+                &inc_dec_kp LG(LS(GRAVE)) LG(GRAVE)
             >;
         };
 
+        // ------------------------------------------------------------------
+        // L3 NAV — 左親指53 (Space) の長押し
+        //   右手を列でそろえてある。上から順に「大きく飛ぶ / 1つ動く / 単語と行の端」。
+        //     列14: Home  ← Opt+←(単語左)     列15: PgUp ↓ Cmd+←(行頭)
+        //     列16: PgDn  ↑ Cmd+→(行末)       列17: End  → Opt+→(単語右)
+        //   左手の Z X C V B に取り消し・切り取り・コピー・貼り付け・やり直し。
+        //   親指64/65 から外した Cmd+C / Cmd+V はここに戻っている。
+        //   左手のホームローは &trans なので、d (HRM Shift) を押しながら右手の矢印で選択できる。
+        //   HRM が効かないときは位置36 の物理 Shift を使う。
+        //
+        //   ※ 工程1 までこのレイヤーは3行目が14個 (row4 の形) で書かれていて、位置24 以降が
+        //     2つずつ後ろにずれていた。ずれた先が全部 &trans だったので出力は変わっていなかったが、
+        //     ここで正しい 12/12/12/14/8/6/2/9 に組み直した。
+        // ------------------------------------------------------------------
+        layer_3 {
+            bindings = <
+&trans  &trans        &trans        &trans        &trans        &trans                        &trans  &trans        &trans        &trans        &trans        &trans
+&trans  &trans        &trans        &trans        &trans        &trans                        &trans  &kp HOME      &kp PG_UP     &kp PG_DN     &kp END       &trans
+&trans  &trans        &trans        &trans        &trans        &trans                        &trans  &kp LEFT      &kp DOWN      &kp UP        &kp RIGHT     &trans
+&trans  &kp LG(Z)     &kp LG(X)     &kp LG(C)     &kp LG(V)     &kp LG(LS(Z))  &trans  &trans  &trans  &kp LA(LEFT)  &kp LG(LEFT)  &kp LG(RIGHT) &kp LA(RIGHT) &trans
+&trans  &trans                                    &trans        &trans         &trans  &trans                                     &trans        &trans
+                      &trans        &trans                                     &trans  &trans                       &none         &none
+                                                                               &trans  &trans
+        &none         &none         &none                                                                           &none         &none         &none
+                                                                               &none  &none  &none
+            >;
+            sensor-bindings = <
+                &inc_dec_kp LG(Z) LG(LS(Z))
+                &inc_dec_kp UP_ARROW DOWN_ARROW
+            >;
+        };
+
+        // ------------------------------------------------------------------
+        // L4 MOUSE — トラックボールが動くと zip_temp_layer で自動的に入る
+        //   クリックは右手ホームロー。2026-08-16 に本人が実機で確かめた
+        //   「ボールを転がしたまま J を押し続けて範囲選択ができる」ので、右手のまま据え置く。
+        //   ここを動かしたら mtk64_trackball.dtsi の excluded-positions も必ず追随させる
+        //   (excluded-positions に無いキーを押すとレイヤーが解除されてクリックにならない)。
+        // ------------------------------------------------------------------
         layer_4 {
             bindings = <
-&trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans                          &trans  &trans      &trans  &trans                          &trans  &trans
-                &trans  &trans                  &trans      &trans                  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                      &trans    &trans    &trans    &trans    &trans    &trans
+&trans  &trans  &trans  &trans  &trans  &trans                      &trans    &trans    &trans    &trans    &trans    &trans
+&trans  &trans  &trans  &trans  &trans  &trans                      &mkp MB4  &mkp MB1  &mkp MB2  &mkp MB3  &mkp MB5  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans    &trans    &trans    &trans    &trans    &trans
+&trans  &trans                          &trans  &trans      &trans  &trans                        &trans    &trans
+                &trans  &trans                  &trans      &trans                      &none     &none
                                                 &trans      &trans
-        &trans  &trans  &trans                                                      &trans  &trans  &trans
-                                               &trans &trans &trans
+        &none   &none   &none                                                           &none     &none     &none
+                                                &none  &none  &none
             >;
         };
 
+        // ------------------------------------------------------------------
+        // L5 SCROLL — 左親指64 を押している間だけ、ボールが縦横スクロールになる
+        //   全キー &trans。MOUSE (L4) より上なので、押している間もクリックは下に落ちて効く。
+        //   エンコーダーは1個目が縦・2個目が横。
+        // ------------------------------------------------------------------
         layer_5 {
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans                          &trans  &trans      &trans  &trans                          &trans  &trans
-                &trans  &trans                  &trans      &trans                  &trans  &trans
+&trans  &trans                          &trans  &trans      &trans  &trans                  &trans  &trans
+                &trans  &trans                  &trans      &trans                  &none   &none
                                                 &trans      &trans
-        &trans  &trans  &trans                                                      &trans  &trans  &trans
-                                               &trans &trans &trans
+        &none   &none   &none                                                       &none   &none   &none
+                                                &none  &none  &none
+            >;
+            sensor-bindings = <
+                &scroll_up_down    SCRL_UP   SCRL_DOWN
+                &scroll_left_right SCRL_LEFT SCRL_RIGHT
             >;
         };
 
-        // 自動マウスレイヤー。トラックボールが動くと zip_temp_layer で入る。
-        // クリックは 2026-08-13 に M/, から右手ホームロー (J/K/L) へ移した。
-        // ここを動かしたら zip_temp_layer の excluded-positions も必ず追随させる
-        // (excluded-positions に無いキーを押すとレイヤーが解除されてクリックにならない)。
+        // ------------------------------------------------------------------
+        // L6 SNIPE — 右親指61 を押している間だけ、ボールの分解能が落ちて精密になる
+        //   全キー &trans。MOUSE (L4) より上なので、押している間もクリックは下に落ちて効く。
+        // ------------------------------------------------------------------
         layer_6 {
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans                      &mkp MB4  &mkp MB1  &mkp MB2  &mkp MB3  &mkp MB5  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans      &trans          &trans          &trans          &trans          &trans    &trans  &trans
-&trans  &trans                          &trans  &trans      &trans  &trans                          &trans  &trans
-                &trans  &trans                  &trans      &trans                  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans                          &trans  &trans      &trans  &trans                  &trans  &trans
+                &trans  &trans                  &trans      &trans                  &none   &none
                                                 &trans      &trans
-        &trans  &trans  &trans                                                      &trans  &trans  &trans
-                                               &trans &trans &trans 
+        &none   &none   &none                                                       &none   &none   &none
+                                                &none  &none  &none
+            >;
+        };
+
+        // ------------------------------------------------------------------
+        // L7 FUNC — 右親指65 を押している間
+        //   右親指で呼ぶので、中身は全部 左手に置いてある。唯一の例外は位置11 の &bootloader で、
+        //   これは同じ手の小指を上まで伸ばさないと届かない＝誤爆しない位置に置いてある。
+        //   段1: メディア  段2: 固定修飾 (&sk。手首が痛む日に押しっぱなしを避ける逃げ道)
+        //   段3: ことえりの変換やり直しとスクリーンショット
+        //     Ctrl+J ひらがな / Ctrl+K カタカナ / Ctrl+L 全角英数 / Ctrl+; 半角英数
+        //     いずれも &kp 1つで書けるので ZMK のマクロは使っていない。
+        // ------------------------------------------------------------------
+        layer_7 {
+            bindings = <
+&bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3 &bt BT_SEL 4 &bt BT_CLR                    &trans  &trans  &trans  &trans  &trans  &bootloader
+&trans       &kp C_PREV   &kp C_PP     &kp C_NEXT   &kp C_MUTE   &trans                        &trans  &trans  &trans  &trans  &trans  &trans
+&trans       &sk LCTRL    &sk LALT     &sk LSHFT    &sk LGUI     &trans                        &trans  &trans  &trans  &trans  &trans  &trans
+&trans       &kp LC(J)    &kp LC(K)    &kp LC(L)    &kp LC(SEMI) &kp LG(LS(N4)) &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans       &trans                                 &trans       &trans         &trans  &trans                  &trans  &trans
+                          &trans       &trans                                   &trans  &trans          &none   &none
+                                                                                &trans  &trans
+        &none             &none        &none                                                            &none   &none   &none
+                                                                                &none  &none  &none
+            >;
+            sensor-bindings = <
+                &inc_dec_kp C_BRI_DN C_BRI_UP
+                &inc_dec_kp C_PREV C_NEXT
             >;
         };
     };

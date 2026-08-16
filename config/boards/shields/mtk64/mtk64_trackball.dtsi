@@ -73,14 +73,17 @@
         status = "disabled";
         device = <&trackball>;
 
+        // レイヤー番号は config/mtk64.keymap の LY_* と必ずそろえること。
+        // 2026-08-16 の工程2 で8枚構成にしたとき snipe 1→6 / scroll 3→5 /
+        // zip_temp_layer 6→4 につけ替えた。片方だけ直すと全部 別のレイヤーを見にいく。
         snipe {
-        layers = <1>;
+        layers = <6>;
         input-processors = <&zip_xy_scaler 1 2>;
         process-next;
         };
 
         scroll {
-        layers = <3>;
+        layers = <5>;
         // 1. X/Y をホイールに読み替える
         // 2. 縦だけ反転する (2026-08-13。カーソルの向きは変えない。
         //    zip_scroll_transform は WHEEL/HWHEEL に効くので必ず mapper の後ろに置く)
@@ -91,7 +94,7 @@
         process-next;
         };
 
-        input-processors = <&zip_temp_layer 6 5000>;
+        input-processors = <&zip_temp_layer 4 5000>;
 
     };
 
@@ -101,6 +104,8 @@
         require-prior-idle-ms = <500>;
         // ここに書いた位置はマウスレイヤーを解除しない。クリックを置いた位置と必ず一致させる。
         // 2026-08-13 に 43-47 (] N M , .) から右手ホームロー 30-34 (H J K L ;) へ移した。
+        // 2026-08-16 に本人が実機で確認: ボールを転がしたまま J を押し続けて範囲選択ができる。
+        // 同じ手でも成立するので、SPEC が書いていた「左手へ移す」案は採らず右手に据え置く。
         excluded-positions = <
             30  // H  戻る (MB4)
             31  // J  左クリック (MB1)
