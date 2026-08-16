@@ -141,7 +141,7 @@
             bindings = <&mo>, <&kp>;
         };
 
-        // app_switch — 位置59 (エンコーダーの押し込み)。Cmd+Tab のアプリ切替を
+        // app_switch — 位置58 (外側のノブの押し込み)。Cmd+Tab のアプリ切替を
         //   ノブで送るためのもの (2026-08-16 の依頼)。押している間だけ Cmd を押しっぱなしにし、
         //   同時に LY_APPSW へ入る。そのレイヤーではエンコーダーが Tab / Shift+Tab を送るので、
         //   切替の一覧が開いたまま前にも後ろにも送れる。離すと Cmd が上がって確定する。
@@ -150,7 +150,8 @@
         //   1目盛ごとに Cmd を離してしまうので、macOS はそのたびに切替を確定してしまい、
         //   一覧が開かない。2つのアプリを行ったり来たりするだけになる。
         //
-        //   押し込みながら回せるかは実機で確かめること。左右どちらのノブを回しても効くように、
+        //   2026-08-17 に位置59 から58 へ移した。59 は Mission Control にしたため。
+        //   押し込みながら回せるかは実機で確かめること。どちらのノブを回しても効くように、
         //   LY_APPSW ではエンコーダー2個に同じ割当を入れてある。
         //   型は ZMK 公式ドキュメント (keymaps/behaviors/macros) の「レイヤー + 修飾キー」そのもの。
         app_switch: app_switch {
@@ -224,8 +225,10 @@
         //         左手の文字を語中で大文字にする (DX / FOB) には右手の Shift が要るのに、
         //         HRM の k は require-prior-idle-ms で打鍵中は発火しない。50/51 の鏡の位置。
         //   54 : BkSp / Shift併用で Delete (mod-morph)。
-        //   58 / 59 : ロータリーエンコーダーの押し込み。58=ミュート (エンコーダー1が音量なので対)、
-        //         59=アプリ切替 (押したまま回すと Cmd+Tab の一覧を送れる。app_switch を見よ)。
+        //   58 / 59 : ロータリーエンコーダーの押し込み (2026-08-17 に入れ替えた)。
+        //         58 (外側) = アプリ切替。押したまま回すと Cmd+Tab の一覧を送れる (app_switch を見よ)。
+        //         59 (内側) = Mission Control (Ctrl+↑)。本人の希望で入れた。
+        //         ミュートはここから外したが FUNC の段1 (位置15) に残っている。
         //         Enter は 55 の右親指に1つ残っている。
         //   42 : NUM の呼び出し (左手人差指の内側)。親指4本が IME・Space・SYM・SCROLL で
         //         埋まったので、テンキーだけ指に降ろした。右手でテンキーを打つので hold は左手が要る。
@@ -240,20 +243,17 @@
 &kp ESC   &hml LCTRL A &hml LALT S  &hml LSHFT D  &hml LGUI F  &kp G                             &kp H  &hmr RGUI J &hmr RSHFT K &hmr RALT L &hmr RCTRL SEMI  &kp SQT
 &kp LSHFT &kp Z        &kp X        &kp C         &kp V        &kp B        &mo LY_NUM  &kp BSLH &kp N  &kp M       &kp COMMA    &kp DOT     &kp SLASH        &kp EQUAL
 &kp LALT  &kp LGUI                                &td_ime          &lt_nav LY_NAV SPACE      &bspc_del &kp ENTER                                  &kp DEL          &kp RSHFT
-                       &kp C_MUTE                 &app_switch               &mo LY_SYM                &mo LY_SNIPE                          &none       &none
+                       &app_switch                &kp LC(UP)                &mo LY_SYM                &mo LY_SNIPE                          &none       &none
                                                                             &mo LY_SCROLL             &mo LY_FUNC
           &none        &none        &none                                                                                       &none       &none            &none
                                                                             &none    &none       &none
             >;
 
+            // 2026-08-17 に頻度で並べ替えた。BASE で最も回すのはカーソル移動なのでここに置く。
+            // 音量は FUNC へ、デスクトップ切り替えは NAV へ移した。
             sensor-bindings = <
-                &inc_dec_kp C_VOL_DN C_VOL_UP
-                // 2個目はデスクトップ (Mission Control のスペース) の切り替え。
-                // Magic Mouse の2本指 左右スライドと同じ種類の操作なので、ノブが一番近い。
-                // 差し替える前は「カーソル左右」だったが、NAV の矢印と重複していて価値が低かった。
-                // macOS 側で システム設定 → キーボード → キーボードショートカット →
-                // Mission Control の「操作スペース1つ左/右に移動」が有効になっている必要がある (既定で有効)。
-                &inc_dec_kp LC(LEFT_ARROW) LC(RIGHT_ARROW)
+                &inc_dec_kp LEFT_ARROW RIGHT_ARROW
+                &inc_dec_kp UP_ARROW   DOWN_ARROW
             >;
         };
 
@@ -333,9 +333,12 @@
         &none         &none         &none                                                                           &none         &none         &none
                                                                                &none  &none  &none
             >;
+            // 1個目はデスクトップ (Mission Control のスペース) の切り替え。BASE から移した。
+            // macOS 側で「操作スペースを1つ左/右に移動」が有効である必要がある (既定で有効)。
+            // 2個目は Undo / Redo。BASE が上下左右になったので行移動はここから外した。
             sensor-bindings = <
+                &inc_dec_kp LC(LEFT_ARROW) LC(RIGHT_ARROW)
                 &inc_dec_kp LG(Z) LG(LS(Z))
-                &inc_dec_kp UP_ARROW DOWN_ARROW
             >;
         };
 
@@ -405,7 +408,7 @@
         // L7 FUNC — 右親指65 を押している間
         //   右親指で呼ぶので、中身は全部 左手に置いてある。唯一の例外は位置11 の &bootloader で、
         //   これは同じ手の小指を上まで伸ばさないと届かない＝誤爆しない位置に置いてある。
-        //   段1: 再生/停止・アプリ切り替え4つ・ミュート
+        //   段1: 左手にアプリ切り替え4つ、右手にメディア4つ（音量と明るさはノブ側にある）
         //   段2: 固定修飾 (&sk。手首が痛む日に押しっぱなしを避ける逃げ道)
         //   段3: ことえりの変換やり直しとスクリーンショット
         //     Ctrl+J ひらがな / Ctrl+K カタカナ / Ctrl+L 全角英数 / Ctrl+; 半角英数
@@ -425,7 +428,7 @@
         layer_7 {
             bindings = <
 &bt BT_SEL 0 &bt BT_SEL 1     &bt BT_SEL 2     &bt BT_SEL 3     &bt BT_SEL 4     &bt BT_CLR                    &trans  &trans  &trans  &trans  &trans  &bootloader
-&kp C_PP     &kp LC(LA(LG(C))) &kp LC(LA(LG(V))) &kp LC(LA(LG(F))) &kp LC(LA(LG(I))) &kp C_MUTE                &trans  &trans  &trans  &trans  &trans  &trans
+&trans       &kp LC(LA(LG(C))) &kp LC(LA(LG(V))) &kp LC(LA(LG(F))) &kp LC(LA(LG(I))) &trans                &trans  &kp C_PREV  &kp C_PP  &kp C_NEXT  &kp C_MUTE  &trans
 &trans       &sk LCTRL        &sk LALT         &sk LSHFT        &sk LGUI         &trans                        &trans  &trans  &trans  &trans  &trans  &trans
 &trans       &kp LC(J)        &kp LC(K)        &kp LC(L)        &kp LC(SEMI)     &kp LG(LS(N4)) &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans       &trans                                 &trans       &trans         &trans  &trans                  &trans  &trans
@@ -434,9 +437,11 @@
         &none             &none        &none                                                            &none   &none   &none
                                                                                 &none  &none  &none
             >;
+            // 音量は BASE から移した。頻度が低いのでレイヤーの中で十分。
+            // 曲送りはキー側 (段1 の 13・15) に移した。
             sensor-bindings = <
+                &inc_dec_kp C_VOL_DN C_VOL_UP
                 &inc_dec_kp C_BRI_DN C_BRI_UP
-                &inc_dec_kp C_PREV C_NEXT
             >;
         };
 
